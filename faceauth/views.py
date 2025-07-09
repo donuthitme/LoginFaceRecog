@@ -35,25 +35,27 @@ def upload_face(request):
 @permission_classes([AllowAny])
 def verify_face(request):
     try:
-        username = request.data['username']
         img = decode_image(request.data['image'])
-
-        user = User.objects.get(username=username)
-        face_data = FacialData.objects.get(user=user)
-        saved_encoding = np.frombuffer(face_data.encoding, dtype=np.float32)
-
         input_embedding = DeepFace.represent(img_path=img, model_name='Facenet')[0]["embedding"]
         input_encoding = np.asarray(input_embedding, dtype=np.float32)
 
-        distance = np.linalg.norm(saved_encoding - input_encoding)
+        # Loop through all saved facial encodings
+        for face_data in FacialData.objects.select_related("user").all():
+            saved_encoding = np.frombuffer(face_data.encoding, dtype=np.float32)
+            distance = np.linalg.norm(saved_encoding - input_encoding)
 
-        if distance < 10:  # Can adjust threshold
-            token, _ = Token.objects.get_or_create(user=user)
-            return Response({ "verified": True, "token": token.key, "user_id": user.id })
-        else:
-            return Response({"verified": False})
+            if distance < 10:  # Match threshold
+                token, _ = Token.objects.get_or_create(user=face_data.user)
+                return Response({
+                    "verified": True,
+                    "token": token.key,
+                    "user_id": face_data.user.id
+                })
+
+        return Response({ "verified": False })  # No match found
+
     except Exception as e:
-        return Response({"error": str(e)})
+        return Response({ "error": str(e) })
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])

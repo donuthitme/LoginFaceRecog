@@ -1,39 +1,36 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   Container,
   Typography,
-  Button,
   Snackbar,
   Alert,
-  TextField,
   Box,
+  CircularProgress,
 } from "@mui/material";
 import Webcam from "react-webcam";
 import axios from "axios";
 
 export default function FaceLogin({ setToken }) {
   const webcamRef = useRef(null);
-  const [username, setUsername] = useState("");
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    type: "success",
-    message: "",
-  });
+  const [snackbar, setSnackbar] = useState({ open: false, type: "success", message: "" });
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
+  // Auto-capture every 3 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleAutoCapture();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleAutoCapture = async () => {
     const imageSrc = webcamRef.current?.getScreenshot();
+    if (!imageSrc || loading) return;
 
-    if (!imageSrc) {
-      return setSnackbar({
-        open: true,
-        type: "error",
-        message: "Failed to capture image. Please check your camera.",
-      });
-    }
+    setLoading(true);
 
     try {
       const res = await axios.post("http://127.0.0.1:8000/api/verify_face/", {
-        username,
         image: imageSrc,
       });
 
@@ -43,16 +40,14 @@ export default function FaceLogin({ setToken }) {
         setSnackbar({
           open: true,
           type: "success",
-          message: "✅ Face matched! Login successful.",
+          message: "✅ Face matched! Logging in...",
         });
-
-        // Optional: redirect
-        setTimeout(() => window.location.href = "/manage-face", 1500);
+        setTimeout(() => (window.location.href = "/manage-face"), 1500);
       } else {
         setSnackbar({
           open: true,
           type: "error",
-          message: "❌ Face does not match.",
+          message: "❌ No matching face found.",
         });
       }
     } catch (err) {
@@ -61,36 +56,25 @@ export default function FaceLogin({ setToken }) {
         type: "error",
         message: err.response?.data?.error || "An error occurred",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Container maxWidth="sm" sx={{ mt: 4 }}>
+    <Container maxWidth="sm" sx={{ mt: 4, textAlign: "center" }}>
       <Typography variant="h4" gutterBottom>
         Face Login
       </Typography>
-      <Typography variant="body1" mb={2}>
-        Enter your username and align your face in the webcam frame.
-      </Typography>
-
-      <TextField
-        label="Username"
-        fullWidth
-        margin="normal"
-        onChange={(e) => setUsername(e.target.value)}
-      />
+      <Typography mb={2}>Align your face in the circle below</Typography>
 
       <Box
         sx={{
-          display: "flex",
-          justifyContent: "center",
-          mb: 2,
-          border: "2px solid #1976d2",
-          borderRadius: 2,
-          overflow: "hidden",
+          position: "relative",
           width: 400,
           height: 300,
           mx: "auto",
+          mb: 2,
         }}
       >
         <Webcam
@@ -99,26 +83,34 @@ export default function FaceLogin({ setToken }) {
           screenshotFormat="image/jpeg"
           width={400}
           height={300}
-          onUserMediaError={(err) =>
-            console.error("Webcam access denied or unavailable:", err)
-          }
           videoConstraints={{
             width: 400,
             height: 300,
             facingMode: "user",
           }}
+          style={{ borderRadius: 12 }}
+        />
+        {/* Circle Overlay */}
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            width: 180,
+            height: 180,
+            borderRadius: "50%",
+            border: "4px solid #1976d2",
+            transform: "translate(-50%, -50%)",
+            pointerEvents: "none",
+          }}
         />
       </Box>
 
-      <Box display="flex" justifyContent="center" mb={3}>
-        <Button variant="contained" onClick={handleLogin}>
-          Login with Face
-        </Button>
-      </Box>
+      {loading && <CircularProgress />}
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={4000}
+        autoHideDuration={3000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
