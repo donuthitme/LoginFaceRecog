@@ -66,6 +66,14 @@ def delete_face(request):
     except:
         return Response({"status": "No face data to delete"})
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_info(request):
+    return Response({
+        "username": request.user.username,
+        "user_id": request.user.id
+    })
+
 # --- Token-Based Auth Functions ---
 
 from rest_framework.authtoken.models import Token

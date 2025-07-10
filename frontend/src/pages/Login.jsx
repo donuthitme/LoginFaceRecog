@@ -15,7 +15,7 @@ export default function Login({ setToken }) {
       });
       localStorage.setItem("token", res.data.token);
       setToken(res.data.token);
-      navigate("/manage-face");
+      navigate("/");
     } catch (err) {
       alert(err.response?.data?.error || "Login failed");
     }
